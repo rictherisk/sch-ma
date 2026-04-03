@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Réseau Médical — VLAN Map v3</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Exo+2:wght@300;400;600;700&display=swap');
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:#06090f;font-family:'Exo 2',sans-serif;color:#c8d8f0;min-height:100vh;overflow-x:hidden}
+body::before{content:'';position:fixed;inset:0;
+  background-image:linear-gradient(rgba(0,160,255,.03) 1px,transparent 1px),
+  linear-gradient(90deg,rgba(0,160,255,.03) 1px,transparent 1px);
+  background-size:44px 44px;pointer-events:none;z-index:0}
+header{position:relative;z-index:10;text-align:center;padding:20px 20px 6px}
+header h1{font-family:'Share Tech Mono',monospace;font-size:clamp(12px,1.8vw,19px);
+  letter-spacing:.22em;color:#00c8ff;text-shadow:0 0 18px rgba(0,200,255,.45);text-transform:uppercase}
+header p{font-size:10px;color:#3a6a8b;letter-spacing:.14em;margin-top:3px;font-family:'Share Tech Mono',monospace}
+.wrap{position:relative;z-index:1;width:100%;max-width:1400px;margin:0 auto;padding:6px 12px 30px}
+svg{width:100%;height:auto;display:block}
+
+/* VLAN zones */
+.vlan-bg{fill-opacity:.07;stroke-width:1.2}
+.v10-bg{fill:#2563eb;stroke:#2563eb}.v10-lbl{fill:#93c5fd}
+.v20-bg{fill:#16a34a;stroke:#16a34a}.v20-lbl{fill:#86efac}
+.v30-bg{fill:#0891b2;stroke:#0891b2}.v30-lbl{fill:#67e8f9}
+.v40-bg{fill:#ea580c;stroke:#ea580c}.v40-lbl{fill:#fdba74}
+.v50-bg{fill:#dc2626;stroke:#dc2626}.v50-lbl{fill:#fca5a5}
+.v60-bg{fill:#7c3aed;stroke:#7c3aed}.v60-lbl{fill:#c4b5fd}
+.v70-bg{fill:#ca8a04;stroke:#ca8a04}.v70-lbl{fill:#fde68a}
+
+/* Nodes */
+.nbox rect{stroke-width:1.2}
+.n-fw rect   {fill:#0d1420;stroke:#e05c30;stroke-width:2}
+.n-sw rect   {fill:#061828;stroke:#00c8ff;stroke-width:1.5}
+.n-sw-dmz rect{fill:#1a0606;stroke:#fbbf24;stroke-width:1.5}
+.n-inet rect {fill:#0a0a14;stroke:#555}
+.n-cloud rect{fill:#0d0018;stroke:#a855f7;stroke-width:1.2;stroke-dasharray:6 3}
+.n-v10 rect  {fill:#0a1030;stroke:#2563eb}
+.n-v20 rect  {fill:#0a1a10;stroke:#16a34a}
+.n-v30 rect  {fill:#061820;stroke:#0891b2}
+.n-v40 rect  {fill:#1a0e06;stroke:#ea580c}
+.n-v50 rect  {fill:#1a0606;stroke:#dc2626;stroke-width:1.5}
+.n-v60 rect  {fill:#100818;stroke:#7c3aed}
+.n-v70 rect  {fill:#181204;stroke:#ca8a04}
+
+.lm{font-family:'Exo 2',sans-serif;font-size:10.5px;font-weight:600;fill:#d0e8ff}
+.ls{font-family:'Share Tech Mono',monospace;font-size:8.5px;fill:#3a6a8b}
+.lv{font-family:'Share Tech Mono',monospace;font-size:8px;font-weight:600}
+.ltag{font-family:'Share Tech Mono',monospace;font-size:7.5px}
+
+/* ══ FLOWS ══ */
+/* Green internal LAN */
+.fl-green{stroke:#22c55e;stroke-width:1.8;fill:none;stroke-dasharray:9 5;
+  opacity:0;animation:dash 1.6s linear infinite,fadein .7s var(--d,3s) forwards}
+/* Blue VPN */
+.fl-blue{stroke:#38bdf8;stroke-width:2;fill:none;stroke-dasharray:10 5;
+  opacity:0;animation:dash 1.3s linear infinite,fadein .7s var(--d,3.5s) forwards}
+/* Purple filtered external */
+.fl-purple{stroke:#a855f7;stroke-width:2;fill:none;stroke-dasharray:9 5;
+  opacity:0;animation:dash 1.1s linear infinite,fadein .7s var(--d,2.8s) forwards}
+/* Attack red */
+.fl-attack{stroke:#ef4444;stroke-width:2.2;fill:none;stroke-dasharray:10 6;
+  animation:dash .5s linear infinite,attackfade 3s forwards}
+/* DMZ flow — black/yellow alternating dashes */
+.fl-dmz{stroke:#fbbf24;stroke-width:2;fill:none;
+  stroke-dasharray:8 4 2 4;
+  opacity:0;animation:dashdmz 1.2s linear infinite,fadein .7s var(--d,3.2s) forwards}
+@keyframes dashdmz{to{stroke-dashoffset:-36}}
+
+@keyframes dash{to{stroke-dashoffset:-28}}
+@keyframes fadein{to{opacity:1}}
+@keyframes attackfade{0%{opacity:1}75%{opacity:1}100%{opacity:0}}
+
+/* Redundancy */
+.srv-fire{opacity:0;animation:fireloop 12s var(--d,8s) infinite}
+.srv-ok  {opacity:0;animation:okloop   12s var(--d,8s) infinite}
+@keyframes fireloop{0%{opacity:0}4%{opacity:1}45%{opacity:1}49%{opacity:0}100%{opacity:0}}
+@keyframes okloop  {0%{opacity:0}50%{opacity:0}54%{opacity:1}96%{opacity:1}100%{opacity:0}}
+.fl-failover{stroke:#22c55e;stroke-width:2;fill:none;stroke-dasharray:7 5;
+  opacity:0;animation:dash 1s linear infinite,okloop 12s var(--d,8s) infinite}
+.flame-anim{animation:flicker .35s ease-in-out infinite alternate;transform-origin:center}
+@keyframes flicker{0%{opacity:.7;transform:scaleY(.92)}100%{opacity:1;transform:scaleY(1.1)}}
+.check-anim{animation:ckpulse 1s ease-in-out infinite}
+@keyframes ckpulse{0%,100%{opacity:1}50%{opacity:.6}}
+
+/* Warning pulse on pfSense entry */
+.warn-pulse{animation:warnpulse 1.5s ease-in-out infinite}
+@keyframes warnpulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.6;transform:scale(1.2)}}
+</style>
+</head>
+<body>
+<header>
+  <h1>Infrastructure Réseau — Centre Médical Multi-Spécialités</h1>
+  <p>Segmentation VLAN · pfSense · 2 switchs · Flux animés</p>
+</header>
+<div class="wrap">
+<svg viewBox="0 0 1280 920" xmlns="http://www.w3.org/2000/svg">
+<defs>
+  <marker id="ag" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+    <path d="M2 1L8 5L2 9" fill="none" stroke="#22c55e" stroke-width="1.5" stroke-linecap="round"/></marker>
+  <marker id="ab" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+    <path d="M2 1L8 5L2 9" fill="none" stroke="#38bdf8" stroke-width="1.5" stroke-linecap="round"/></marker>
+  <marker id="ap" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+    <path d="M2 1L8 5L2 9" fill="none" stroke="#a855f7" stroke-width="1.5" stroke-linecap="round"/></marker>
+  <marker id="ar" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+    <path d="M2 1L8 5L2 9" fill="none" stroke="#ef4444" stroke-width="1.5" stroke-linecap="round"/></marker>
+  <marker id="ay" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+    <path d="M2 1L8 5L2 9" fill="none" stroke="#fbbf24" stroke-width="1.5" stroke-linecap="round"/></marker>
+</defs>
+
+<!-- ══════════════ INTERNET ══════════════ -->
+<g class="nbox n-inet">
+  <rect x="540" y="14" width="160" height="50" rx="8"/>
+  <text class="lm" x="620" y="35" text-anchor="middle">🌐 Internet</text>
+  <text class="ls" x="620" y="51" text-anchor="middle">WAN / Accès externe</text>
+</g>
+
+<!-- ══════════════ PFSENSE ══════════════ -->
+<g class="nbox n-fw">
+  <rect x="520" y="120" width="200" height="66" rx="9"/>
+  <text class="lm" x="620" y="143" text-anchor="middle" font-size="12">🔥 pfSense</text>
+  <text class="ls" x="620" y="159" text-anchor="middle">Pare-feu · Routeur · NAT · VPN</text>
+  <text class="ls" x="620" y="172" text-anchor="middle" fill="#e05c30">Filtrage inter-VLAN</text>
+</g>
+
+<!-- Warning ⚠ sur l'entrée pfSense (entre Internet et pfSense) -->
+<g style="transform:translate(630px,78px)">
+  <g class="warn-pulse" style="transform-origin:0px 0px">
+    <text font-size="20" x="0" y="0" text-anchor="middle" fill="#fbbf24">⚠</text>
+  </g>
+  <text font-family="'Share Tech Mono',monospace" font-size="7" fill="#fbbf24" x="0" y="14" text-anchor="middle">FILTRÉ</text>
+</g>
+
+<!-- ══════════════ SWITCH DMZ (rempart entre pfSense et DMZ) ══════════════ -->
+<g class="nbox n-sw-dmz">
+  <rect x="200" y="126" width="155" height="54" rx="8"/>
+  <text class="lm" x="277" y="147" text-anchor="middle">⇄ Switch DMZ</text>
+  <text class="ls" x="277" y="161" text-anchor="middle" fill="#fbbf24">Rempart isolé</text>
+  <text class="ls" x="277" y="173" text-anchor="middle">pfSense ↔ DMZ</text>
+</g>
+
+<!-- ══════════════ SWITCH DE DISTRIBUTION ══════════════ -->
+<g class="nbox n-sw">
+  <rect x="520" y="248" width="200" height="54" rx="8"/>
+  <text class="lm" x="620" y="269" text-anchor="middle">⇄ Switch Distribution</text>
+  <text class="ls" x="620" y="283" text-anchor="middle">Dispatch VLANs 10·20·30·40·60·70</text>
+  <text class="ls" x="620" y="296" text-anchor="middle" fill="#00c8ff">Trunk 802.1Q</text>
+</g>
+
+<!-- ══════════════ CLOUD ══════════════ -->
+<g class="nbox n-cloud">
+  <rect x="900" y="14" width="210" height="60" rx="14"/>
+  <text class="lm" x="1005" y="36" text-anchor="middle">☁ Cloud Backup</text>
+  <text class="ls" x="1005" y="52" text-anchor="middle">Veeam Backup — HDS</text>
+  <text class="ls" x="1005" y="64" text-anchor="middle" fill="#a855f7">Sauvegardes chiffrées · RGPD</text>
+</g>
+
+<!-- ══════════════ TÉLÉTRAVAIL ══════════════ -->
+<g class="nbox n-v10">
+  <rect x="900" y="120" width="170" height="50" rx="8"/>
+  <text class="lm" x="985" y="141" text-anchor="middle">👤 Télétravail</text>
+  <text class="ls" x="985" y="157" text-anchor="middle">VPN WireGuard</text>
+</g>
+
+<!-- ══════════════ VLAN 50 — DMZ ══════════════ -->
+<rect class="vlan-bg v50-bg" x="10" y="100" width="180" height="160" rx="10"/>
+<text class="lv v50-lbl" x="100" y="118" text-anchor="middle">VLAN 50 · DMZ</text>
+<text class="ltag" fill="#dc2626" x="100" y="129" text-anchor="middle">192.168.50.0/29 · ISOLÉE</text>
+<g class="nbox n-v50">
+  <rect x="20" y="136" width="160" height="64" rx="7"/>
+  <text class="lm" x="100" y="158" text-anchor="middle">🌐 Serveur Web</text>
+  <text class="ls" x="100" y="173" text-anchor="middle">Nginx · MySQL</text>
+  <text class="ls" x="100" y="186" text-anchor="middle" fill="#ef4444">ISOLÉ — DMZ</text>
+</g>
+
+<!-- ══════════════ VLAN 10 — Admin IT ══════════════ -->
+<rect class="vlan-bg v10-bg" x="10" y="320" width="185" height="215" rx="10"/>
+<text class="lv v10-lbl" x="102" y="338" text-anchor="middle">VLAN 10 · Admin IT</text>
+<text class="ltag" fill="#2563eb" x="102" y="349" text-anchor="middle">192.168.10.0/28 · 14 hôtes</text>
+<g class="nbox n-v10"><rect x="20" y="358" width="165" height="46" rx="7"/>
+  <text class="lm" x="102" y="378" text-anchor="middle">🖥 Jumpbox</text>
+  <text class="ls" x="102" y="392" text-anchor="middle">SSH/RDP</text></g>
+<g class="nbox n-v10"><rect x="20" y="416" width="165" height="46" rx="7"/>
+  <text class="lm" x="102" y="436" text-anchor="middle">🔐 Passbolt</text>
+  <text class="ls" x="102" y="450" text-anchor="middle">Gestionnaire MDP</text></g>
+<g class="nbox n-v10"><rect x="20" y="474" width="165" height="46" rx="7"/>
+  <text class="lm" x="102" y="494" text-anchor="middle">👨‍💻 Admin IT</text>
+  <text class="ls" x="102" y="508" text-anchor="middle">VLAN 10</text></g>
+
+<!-- ══════════════ VLAN 20 — Serveurs ══════════════ -->
+<rect class="vlan-bg v20-bg" x="205" y="320" width="200" height="380" rx="10"/>
+<text class="lv v20-lbl" x="305" y="338" text-anchor="middle">VLAN 20 · Serveurs</text>
+<text class="ltag" fill="#16a34a" x="305" y="349" text-anchor="middle">192.168.20.0/27 · 30 hôtes</text>
+<g class="nbox n-v20" id="ad1"><rect x="215" y="358" width="180" height="46" rx="7"/>
+  <text class="lm" x="305" y="378" text-anchor="middle">🗂 AD Serveur 1</text>
+  <text class="ls" x="305" y="392" text-anchor="middle">Annuaire principal</text></g>
+<g class="nbox n-v20" id="ad2"><rect x="215" y="416" width="180" height="46" rx="7"/>
+  <text class="lm" x="305" y="436" text-anchor="middle">🗂 AD Serveur 2</text>
+  <text class="ls" x="305" y="450" text-anchor="middle">Redondance</text></g>
+<g class="nbox n-v20"><rect x="215" y="474" width="180" height="46" rx="7"/>
+  <text class="lm" x="305" y="494" text-anchor="middle">💾 Serveur Fichiers</text>
+  <text class="ls" x="305" y="508" text-anchor="middle">Stockage partagé</text></g>
+<g class="nbox n-v20"><rect x="215" y="532" width="180" height="46" rx="7"/>
+  <text class="lm" x="305" y="552" text-anchor="middle">💿 Veeam Backup</text>
+  <text class="ls" x="305" y="566" text-anchor="middle">Sauvegarde locale</text></g>
+<g class="nbox n-v20" id="mgmt1"><rect x="215" y="590" width="180" height="46" rx="7"/>
+  <text class="lm" x="305" y="610" text-anchor="middle">⚙ Gestion Serveurs 1</text>
+  <text class="ls" x="305" y="624" text-anchor="middle">Central</text></g>
+<g class="nbox n-v20"><rect x="215" y="648" width="180" height="46" rx="7"/>
+  <text class="lm" x="305" y="668" text-anchor="middle">⚙ Gestion Serveurs 2</text>
+  <text class="ls" x="305" y="682" text-anchor="middle">Redondance</text></g>
+
+<!-- ══════════════ VLAN 70 — Monitoring ══════════════ -->
+<rect class="vlan-bg v70-bg" x="1080" y="320" width="185" height="215" rx="10"/>
+<text class="lv v70-lbl" x="1172" y="338" text-anchor="middle">VLAN 70 · Monitoring</text>
+<text class="ltag" fill="#ca8a04" x="1172" y="349" text-anchor="middle">192.168.70.0/29 · 6 hôtes</text>
+<g class="nbox n-v70"><rect x="1090" y="358" width="165" height="46" rx="7"/>
+  <text class="lm" x="1172" y="378" text-anchor="middle">🛡 Wazuh SIEM</text>
+  <text class="ls" x="1172" y="392" text-anchor="middle">Détection menaces</text></g>
+<g class="nbox n-v70"><rect x="1090" y="416" width="165" height="46" rx="7"/>
+  <text class="lm" x="1172" y="436" text-anchor="middle">📊 Zabbix</text>
+  <text class="ls" x="1172" y="450" text-anchor="middle">Supervision réseau</text></g>
+<g class="nbox n-v70" id="mgmt2"><rect x="1090" y="474" width="165" height="46" rx="7"/>
+  <text class="lm" x="1172" y="494" text-anchor="middle">⚙ Gestion Serveurs 2</text>
+  <text class="ls" x="1172" y="508" text-anchor="middle">Redondance</text></g>
+
+<!-- ══════════════ VLAN 30 — WiFi Interne ══════════════ -->
+<rect class="vlan-bg v30-bg" x="10" y="580" width="185" height="110" rx="10"/>
+<text class="lv v30-lbl" x="102" y="598" text-anchor="middle">VLAN 30 · WiFi Interne</text>
+<text class="ltag" fill="#0891b2" x="102" y="609" text-anchor="middle">192.168.30.0/26 · 62 hôtes</text>
+<g class="nbox n-v30"><rect x="20" y="618" width="165" height="46" rx="7"/>
+  <text class="lm" x="102" y="638" text-anchor="middle">🩺 Médecins</text>
+  <text class="ls" x="102" y="652" text-anchor="middle">Infirmiers · WiFi</text></g>
+
+<!-- ══════════════ VLAN 40 — Administratif ══════════════ -->
+<rect class="vlan-bg v40-bg" x="205" y="720" width="200" height="100" rx="10"/>
+<text class="lv v40-lbl" x="305" y="738" text-anchor="middle">VLAN 40 · Administratif</text>
+<text class="ltag" fill="#ea580c" x="305" y="749" text-anchor="middle">192.168.40.0/27 · 30 hôtes</text>
+<g class="nbox n-v40"><rect x="215" y="758" width="180" height="46" rx="7"/>
+  <text class="lm" x="305" y="778" text-anchor="middle">🏢 RH · Comptabilité</text>
+  <text class="ls" x="305" y="792" text-anchor="middle">Services administratifs</text></g>
+
+<!-- ══════════════ VLAN 60 — WiFi Guest ══════════════ -->
+<rect class="vlan-bg v60-bg" x="1080" y="580" width="185" height="110" rx="10"/>
+<text class="lv v60-lbl" x="1172" y="598" text-anchor="middle">VLAN 60 · WiFi Guest</text>
+<text class="ltag" fill="#7c3aed" x="1172" y="609" text-anchor="middle">192.168.60.0/26 · Patients</text>
+<g class="nbox n-v60"><rect x="1090" y="618" width="165" height="46" rx="7"/>
+  <text class="lm" x="1172" y="638" text-anchor="middle">📱 Patients</text>
+  <text class="ls" x="1172" y="652" text-anchor="middle">Internet uniquement</text></g>
+
+<!-- ══════════════ STATIC WIRES ══════════════ -->
+<!-- Internet → pfSense -->
+<line x1="620" y1="64" x2="620" y2="120" stroke="#222" stroke-width="1.5"/>
+<!-- pfSense → Switch DMZ (horizontal) -->
+<line x1="520" y1="150" x2="355" y2="150" stroke="#333" stroke-width="1.2"/>
+<!-- pfSense → Switch Distribution (vertical) -->
+<line x1="620" y1="186" x2="620" y2="248" stroke="#1a3a5a" stroke-width="1.5"/>
+<!-- Switch Distrib → V10 -->
+<path d="M560 302 L200 302 L102 320" stroke="#1a3a5a" stroke-width="1" fill="none"/>
+<!-- Switch Distrib → V20 -->
+<path d="M570 302 L305 302 L305 320" stroke="#1a3a5a" stroke-width="1" fill="none"/>
+<!-- Switch Distrib → V30 -->
+<path d="M555 302 L160 302 L102 580" stroke="#1a3a5a" stroke-width="1" fill="none"/>
+<!-- Switch Distrib → V40 -->
+<path d="M575 302 L305 740 L305 720" stroke="#1a3a5a" stroke-width="1" fill="none"/>
+<!-- Switch Distrib → V70 -->
+<path d="M680 302 L1172 302 L1172 320" stroke="#1a3a5a" stroke-width="1" fill="none"/>
+<!-- Switch Distrib → V60 -->
+<path d="M685 302 L1172 580" stroke="#1a3a5a" stroke-width="1" fill="none"/>
+<!-- AD1 → AD2 -->
+<line x1="305" y1="404" x2="305" y2="416" stroke="#1a3a5a" stroke-width="1"/>
+<!-- MGMT1 → MGMT2 (cross) -->
+<path d="M395 613 L800 613 L800 483 L1090 483" stroke="#1a3a5a" stroke-width="1" stroke-dasharray="4 3" fill="none"/>
+<!-- Veeam → Cloud -->
+<path d="M395 555 L820 555 L820 44 L900 44" stroke="#1a3a5a" stroke-width="1" stroke-dasharray="5 3" fill="none"/>
+<!-- Télétravail → pfSense -->
+<path d="M900 145 L720 145" stroke="#1a3a5a" stroke-width="1" fill="none"/>
+
+<!-- ══════════════ ANIM 1 — ATTAQUE (0→3s) ══════════════ -->
+<line class="fl-attack" x1="620" y1="64" x2="620" y2="118" marker-end="url(#ar)"/>
+<text font-size="18" x="632" y="92" fill="#ef4444"
+  style="animation:blink .4s infinite alternate;transform-origin:632px 92px">⚡</text>
+<style>@keyframes blink{0%{opacity:1;transform:scale(1)}100%{opacity:.4;transform:scale(1.3)}}</style>
+<!-- Block warning on pfSense entry -->
+<g id="blk1" style="opacity:0;animation:fadein .3s .7s forwards,attackfade 3s forwards">
+  <text font-size="22" x="620" y="116" text-anchor="middle" fill="#fbbf24"
+    style="animation:warnpulse 0.5s ease-in-out infinite;transform-origin:620px 116px">⚠</text>
+  <text font-family="'Share Tech Mono',monospace" font-size="8" fill="#fbbf24" x="620" y="132" text-anchor="middle">BLOQUÉ</text>
+</g>
+
+<!-- ══════════════ ANIM 2 — FLUX VIOLET filtré (2.8s+) ══════════════ -->
+<line class="fl-purple" x1="620" y1="64" x2="620" y2="118" marker-end="url(#ap)" style="--d:2.8s"/>
+<path class="fl-purple" d="M900 145 L720 145" marker-end="url(#ap)" style="--d:3s"/>
+
+<!-- ══════════════ ANIM 3 — FLUX VPN BLEU (3.5s+) ══════════════ -->
+<path class="fl-blue" d="M900 145 L720 145" marker-end="url(#ab)" style="--d:3.5s"/>
+<!-- VPN → pfSense → switch → V10 admin -->
+<path class="fl-blue" d="M560 302 L200 302 L102 320" marker-end="url(#ab)" style="--d:3.7s"/>
+
+<!-- ══════════════ ANIM 4 — FLUX DMZ noir/jaune (3.2s+) ══════════════ -->
+<!-- pfSense ↔ Switch DMZ ↔ Serveur Web — couleur jaune/noire -->
+<line class="fl-dmz" x1="520" y1="152" x2="358" y2="152" marker-end="url(#ay)" style="--d:3.2s"/>
+<path class="fl-dmz" d="M277 180 L100 190 L100 136" marker-end="url(#ay)" style="--d:3.3s"/>
+
+<!-- ══════════════ ANIM 5 — FLUX VERTS INTERNES (3s+) ══════════════ -->
+<!-- pfSense → Switch Distrib -->
+<line class="fl-green" x1="620" y1="186" x2="620" y2="246" marker-end="url(#ag)" style="--d:3.0s"/>
+<!-- Switch → V10 -->
+<path class="fl-green" d="M560 302 L200 302 L102 320" marker-end="url(#ag)" style="--d:3.1s"/>
+<!-- Switch → V20 -->
+<path class="fl-green" d="M580 302 L305 302 L305 320" marker-end="url(#ag)" style="--d:3.15s"/>
+<!-- Switch → V30 -->
+<path class="fl-green" d="M555 302 L102 580" marker-end="url(#ag)" style="--d:3.2s"/>
+<!-- Switch → V40 -->
+<path class="fl-green" d="M600 302 L305 720" marker-end="url(#ag)" style="--d:3.25s"/>
+<!-- Switch → V70 Monitoring -->
+<path class="fl-green" d="M680 302 L1172 320" marker-end="url(#ag)" style="--d:3.3s"/>
+<!-- Switch → V60 patients -->
+<path class="fl-green" d="M685 302 L1172 580" marker-end="url(#ag)" style="--d:3.35s"/>
+<!-- AD1 ↔ AD2 sync -->
+<line class="fl-green" x1="305" y1="404" x2="305" y2="414" marker-end="url(#ag)" style="--d:3.5s"/>
+<!-- Veeam → Cloud (violet car backup externe) -->
+<path class="fl-green" d="M395 555 L820 555 L820 44 L900 44" stroke="#a855f7" stroke-width="1.5" stroke-dasharray="8 5" fill="none"
+  style="opacity:0;animation:dash 2s linear infinite,fadein .7s 3.8s forwards;--d:3.8s"/>
+<!-- Wazuh collecte -->
+<path class="fl-green" d="M1090 375 L395 375" marker-end="url(#ag)" style="--d:4s"/>
+<!-- Zabbix collecte -->
+<path class="fl-green" d="M1090 435 L680 302" marker-end="url(#ag)" style="--d:4.1s"/>
+<!-- V60 → internet uniquement (violet) -->
+<path class="fl-purple" d="M1172 618 L1172 580 L700 175" marker-end="url(#ap)" style="--d:4.3s"/>
+
+<!-- ══════════════ ANIM 6 — REDONDANCE AD (8s+) ══════════════ -->
+<g class="srv-fire" style="--d:8s;transform:translate(295px,338px)">
+  <g class="flame-anim"><text font-size="24" x="0" y="0" text-anchor="middle">🔥</text></g>
+  <text font-family="'Share Tech Mono',monospace" font-size="8" fill="#ef4444" x="0" y="16" text-anchor="middle">PANNE</text>
+</g>
+<g class="srv-ok" style="--d:8s;transform:translate(295px,396px)">
+  <g class="check-anim"><text font-size="22" x="0" y="0" text-anchor="middle">✅</text></g>
+  <text font-family="'Share Tech Mono',monospace" font-size="8" fill="#22c55e" x="0" y="16" text-anchor="middle">ACTIF</text>
+</g>
+<line class="fl-failover" style="--d:8s" x1="305" y1="404" x2="305" y2="414" marker-end="url(#ag)"/>
+
+<!-- REDONDANCE MGMT (13s+) -->
+<g class="srv-fire" style="--d:13s;transform:translate(295px,570px)">
+  <g class="flame-anim"><text font-size="22" x="0" y="0" text-anchor="middle">🔥</text></g>
+  <text font-family="'Share Tech Mono',monospace" font-size="8" fill="#ef4444" x="0" y="14" text-anchor="middle">PANNE</text>
+</g>
+<g class="srv-ok" style="--d:13s;transform:translate(1162px,454px)">
+  <g class="check-anim"><text font-size="22" x="0" y="0" text-anchor="middle">✅</text></g>
+  <text font-family="'Share Tech Mono',monospace" font-size="8" fill="#22c55e" x="0" y="14" text-anchor="middle">ACTIF</text>
+</g>
+<path class="fl-failover" style="--d:13s" d="M395 613 L800 613 L800 483 L1090 483" marker-end="url(#ag)"/>
+
+<!-- ══════════════ LÉGENDE ══════════════ -->
+<rect x="8" y="856" width="1264" height="56" rx="7" fill="rgba(6,9,15,.9)" stroke="#1a2a3a" stroke-width="1"/>
+<!-- Vert -->
+<line x1="22" y1="873" x2="56" y2="873" stroke="#22c55e" stroke-width="2" stroke-dasharray="8 4"/>
+<text font-family="'Share Tech Mono',monospace" font-size="8" fill="#22c55e" x="62" y="877">Flux interne LAN</text>
+<!-- Bleu -->
+<line x1="22" y1="893" x2="56" y2="893" stroke="#38bdf8" stroke-width="2" stroke-dasharray="8 4"/>
+<text font-family="'Share Tech Mono',monospace" font-size="8" fill="#38bdf8" x="62" y="897">Tunnel VPN</text>
+<!-- Violet -->
+<line x1="200" y1="873" x2="234" y2="873" stroke="#a855f7" stroke-width="2" stroke-dasharray="8 4"/>
+<text font-family="'Share Tech Mono',monospace" font-size="8" fill="#a855f7" x="240" y="877">Flux filtré externe → pfSense</text>
+<!-- Jaune/noir DMZ -->
+<line x1="200" y1="893" x2="234" y2="893" stroke="#fbbf24" stroke-width="2" stroke-dasharray="8 4 2 4"/>
+<text font-family="'Share Tech Mono',monospace" font-size="8" fill="#fbbf24" x="240" y="897">Flux DMZ isolé (Switch DMZ)</text>
+<!-- Rouge -->
+<line x1="430" y1="873" x2="464" y2="873" stroke="#ef4444" stroke-width="2" stroke-dasharray="8 4"/>
+<text font-family="'Share Tech Mono',monospace" font-size="8" fill="#ef4444" x="470" y="877">Attaque bloquée (0-3s)</text>
+<!-- Warning -->
+<text font-size="13" x="430" y="897" fill="#fbbf24">⚠</text>
+<text font-family="'Share Tech Mono',monospace" font-size="8" fill="#fbbf24" x="448" y="897">Trafic filtré sur pfSense</text>
+<!-- Feu / Check -->
+<text font-size="13" x="640" y="877">🔥</text>
+<text font-family="'Share Tech Mono',monospace" font-size="8" fill="#ef4444" x="658" y="877">Panne serveur</text>
+<text font-size="13" x="640" y="897">✅</text>
+<text font-family="'Share Tech Mono',monospace" font-size="8" fill="#22c55e" x="658" y="897">Failover actif</text>
+<!-- VLAN tags -->
+<rect x="760" y="864" width="9" height="9" rx="2" fill="#2563eb"/><text font-family="'Share Tech Mono',monospace" font-size="7.5" fill="#93c5fd" x="774" y="873">V10</text>
+<rect x="760" y="882" width="9" height="9" rx="2" fill="#16a34a"/><text font-family="'Share Tech Mono',monospace" font-size="7.5" fill="#86efac" x="774" y="891">V20</text>
+<rect x="820" y="864" width="9" height="9" rx="2" fill="#0891b2"/><text font-family="'Share Tech Mono',monospace" font-size="7.5" fill="#67e8f9" x="834" y="873">V30</text>
+<rect x="820" y="882" width="9" height="9" rx="2" fill="#ea580c"/><text font-family="'Share Tech Mono',monospace" font-size="7.5" fill="#fdba74" x="834" y="891">V40</text>
+<rect x="880" y="864" width="9" height="9" rx="2" fill="#dc2626"/><text font-family="'Share Tech Mono',monospace" font-size="7.5" fill="#fca5a5" x="894" y="873">V50 DMZ</text>
+<rect x="880" y="882" width="9" height="9" rx="2" fill="#7c3aed"/><text font-family="'Share Tech Mono',monospace" font-size="7.5" fill="#c4b5fd" x="894" y="891">V60</text>
+<rect x="960" y="864" width="9" height="9" rx="2" fill="#ca8a04"/><text font-family="'Share Tech Mono',monospace" font-size="7.5" fill="#fde68a" x="974" y="873">V70</text>
+</svg>
+</div>
+</body>
+</html>
